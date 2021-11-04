@@ -25,6 +25,7 @@ var isHoldingSprint:bool
 var isOnGround:bool
 var currentlyMoving:bool
 var currentlyWallRunning:bool
+var currentlySliding:bool
 
 var sensitivity:float = 0.06
 
@@ -47,7 +48,6 @@ func _physics_process(delta):
 	else:
 		isOnGround = false
 		
-	print(currentlyWallRunning)
 	#checks if the player is currently sprinting, sets FOV higher if true as well as movespeed
 	if Input.is_action_pressed("sprint"):
 		isHoldingSprint = true
@@ -57,7 +57,6 @@ func _physics_process(delta):
 		isHoldingSprint = false
 		movementSpeed = baseMovementSpeed
 		camera.fov = lerp(camera.fov, 90, 0.05)
-		
 		
 	if Input.is_action_pressed("moveForwards"):
 		currentlyMoving = true
@@ -76,7 +75,6 @@ func _physics_process(delta):
 			bugJumping = true
 			if chargeBugJump >= 25: #sets max bug jump veloc
 				chargeBugJump = 25
-			print("bugged jump charging")
 	elif Input.is_action_just_released("jump") && isHoldingJump:
 		if currentlyWallRunning && bugJumping:
 			velocity.y = velocity.y + chargeBugJump
@@ -88,7 +86,14 @@ func _physics_process(delta):
 			bugJumpChargeTimer = 0
 		isHoldingJump = false
 			
-		
+	print(camera.translation)
+	if Input.is_action_pressed("crouch") && !isHoldingSprint:
+		camera.translation = lerp(camera.translation, Vector3(0,0.05,0), 0.1)
+	elif Input.is_action_pressed("crouch") && isHoldingSprint:
+		pass
+	else:
+		camera.translation = lerp(camera.translation, Vector3(0,0.65,0), 0.1)
+	
 	
 	#If the player is holding sprint, jump, is not on the ground and close enough to a wall, wallrun.
 	if isHoldingSprint && isHoldingJump && !isOnGround && $leftCast.is_colliding():
