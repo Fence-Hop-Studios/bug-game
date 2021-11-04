@@ -47,8 +47,10 @@ func _process(delta):
 	if $rightCast.is_colliding() or $leftCast.is_colliding():
 		leftOrRightCastColliding = true
 		fallTimer = 0 #Resets the fall timer to stop fov from getting stuck while wall running.
+	else:
+		leftOrRightCastColliding = false
 	
-	print(fallTimer)
+	
 	
 	
 	#used to check if player is moving, does not work below.
@@ -58,6 +60,7 @@ func _process(delta):
 		currentlyMoving = false
 		
 	if $floorCast.is_colliding() == true:
+		
 		isOnGround = true
 		fallTimer = 0
 	else:
@@ -65,7 +68,8 @@ func _process(delta):
 		isOnGround = false
 	
 	if !isOnGround && !leftOrRightCastColliding && fallTimer >= 2:
-		camera.fov = lerp(camera.fov, 115, 0.07)
+		camera.fov = lerp(camera.fov, 110, 0.0008)
+		print("working")
 
 func _physics_process(delta):
 	var movementDirection = _getMovementDirection()
@@ -85,7 +89,8 @@ func _physics_process(delta):
 	else:
 		isHoldingSprint = false
 		movementSpeed = baseMovementSpeed
-		camera.fov = lerp(camera.fov, 90, 0.05)
+		if isOnGround:
+			camera.fov = lerp(camera.fov, 90, 0.05)
 		
 	#Jumping
 	if Input.is_action_just_pressed("jump") && isOnGround:
@@ -111,7 +116,6 @@ func _physics_process(delta):
 			bugJumpChargeTimer = 0
 		isHoldingJump = false
 			
-	print(camera.translation)
 	if Input.is_action_pressed("crouch") && !isHoldingSprint:
 		camera.translation = lerp(camera.translation, Vector3(0,0.05,0), 0.1)
 		currentlyCrouching = false #This is an intentional bug that means move speed isn't halved when crouching
