@@ -10,7 +10,7 @@ config_version=4
 
 [application]
 
-config/name="parkourGame"
+config/name="Bug Game"
 run/main_scene="res://world.tscn"
 config/icon="res://icon.png"
 
@@ -48,6 +48,11 @@ moveBackwards={
 moveForwards={
 "deadzone": 0.5,
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":87,"unicode":0,"echo":false,"script":null)
+ ]
+}
+crouch={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777238,"unicode":0,"echo":false,"script":null)
  ]
 }
 
