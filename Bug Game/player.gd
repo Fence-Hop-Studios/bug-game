@@ -34,6 +34,13 @@ var slideDelay:float #just a timer for delaying slide
 var slideReady:bool = true # set to true by default to make sure the player can actually slide
 var movementLocked:bool #Used to lock movement of character, view and move
 
+#Bug toggles
+var slideFixEnable:bool
+var crouchFixEnable:bool
+var wallStaminaFixEnable:bool
+var bugJumpFixEnable:bool
+var jumpDelayFixEnable:bool
+
 var fallTimer:float
 
 var sensitivity:float = 0.06
@@ -73,17 +80,18 @@ func _process(delta):
 	if !isOnGround && !leftOrRightCastColliding && fallTimer >= 2:
 		camera.fov = lerp(camera.fov, 110, 0.0008)
 	#controls slide delaying, implement toggling this for boss fight
-#	if Input.is_action_just_released("crouch") && currentlySliding:
-#		slideTime = 0
-#		currentlySliding = false
-#		slideReady = false
-#		movementLocked = false
-#
-#	if !slideReady:
-#		slideDelay += delta
-#	if !slideReady && slideDelay >= 1.5:
-#		slideReady = true
-#		slideDelay = 0
+	if slideFixEnable:
+		if Input.is_action_just_released("crouch") && currentlySliding:
+			slideTime = 0
+			currentlySliding = false
+			slideReady = false
+			movementLocked = false
+
+		if !slideReady:
+			slideDelay += delta
+		if !slideReady && slideDelay >= 1.5:
+			slideReady = true
+			slideDelay = 0
 
 func _physics_process(delta):
 	var movementDirection = _getMovementDirection()
@@ -107,73 +115,103 @@ func _physics_process(delta):
 		if isOnGround:
 			camera.fov = lerp(camera.fov, 90, 0.05)
 	#Handles sprint but toggled
-	if Input.is_action_just_pressed("sprint") && toggleSprint && !sprintToggled && !currentlyCrouching:
-		sprintToggled = true
-	elif Input.is_action_just_pressed("sprint") && toggleSprint && sprintToggled:
-		sprintToggled = false
-		
-	if sprintToggled:
-		isHoldingSprint = true
-		movementSpeed = baseMovementSpeed * 2 
-		if currentlyMoving:
-			camera.fov = lerp(camera.fov, 105, 0.09)
-		elif isOnGround:
+	if toggleSprint:
+		if Input.is_action_just_pressed("sprint") && toggleSprint && !sprintToggled && !currentlyCrouching:
+			sprintToggled = true
+		elif Input.is_action_just_pressed("sprint") && toggleSprint && sprintToggled:
+			sprintToggled = false
+			
+		if sprintToggled:
+			isHoldingSprint = true
+			movementSpeed = baseMovementSpeed * 2 
+			if currentlyMoving:
+				camera.fov = lerp(camera.fov, 105, 0.09)
+			elif isOnGround:
+				camera.fov = lerp(camera.fov, 90, 0.05)
+		elif currentlyCrouching:
+			isHoldingSprint = false
+			movementSpeed = baseMovementSpeed / 2
 			camera.fov = lerp(camera.fov, 90, 0.05)
-	elif currentlyCrouching:
-		isHoldingSprint = false
-		movementSpeed = baseMovementSpeed / 2
-		camera.fov = lerp(camera.fov, 90, 0.05)
-	else:
-		isHoldingSprint = false
-		movementSpeed = baseMovementSpeed
-		if isOnGround:
-			camera.fov = lerp(camera.fov, 90, 0.05)
+		else:
+			isHoldingSprint = false
+			movementSpeed = baseMovementSpeed
+			if isOnGround:
+				camera.fov = lerp(camera.fov, 90, 0.05)
 		
 	#Jumping
 	if Input.is_action_just_pressed("jump") && isOnGround:
 		velocity.y = jumpHeight
 	if Input.is_action_pressed("jump") && !isHoldingJump:
 		isHoldingJump = true
-	if Input.is_action_pressed("jump") && !currentlyMoving: #Disable this to disable bug jumping
+		
+	if Input.is_action_pressed("jump") && !currentlyMoving && !bugJumpFixEnable: #Disable this to disable bug jumping
 		bugJumpChargeTimer += delta
 		if currentlyWallRunning && bugJumpChargeTimer >= 1.5 && !currentlyMoving:
 			chargeBugJump = chargeBugJump + 0.5
 			bugJumping = true
 			if chargeBugJump >= 25: #sets max bug jump veloc
 				chargeBugJump = 25
-	elif Input.is_action_just_released("jump") && isHoldingJump:
+	
+	if Input.is_action_just_released("jump") && isHoldingJump:
 		if currentlyWallRunning && bugJumping:
 			velocity.y = velocity.y + chargeBugJump
 			chargeBugJump = 0
 			bugJumpChargeTimer = 0
-		if currentlyWallRunning: #&& wallJumpDelay <= 0: #Remove comment to fix jump delay
+		if currentlyWallRunning && !jumpDelayFixEnable:
 			velocity.y = velocity.y + 10
 			chargeBugJump = 0
-			#wallJumpDelay = 1
+			bugJumpChargeTimer = 0
+		if currentlyWallRunning && wallJumpDelay <= 0 && jumpDelayFixEnable:
+			velocity.y = velocity.y + 10
+			chargeBugJump = 0
+			wallJumpDelay = 1
 			bugJumpChargeTimer = 0
 		isHoldingJump = false
 			
 	#crouch system
 	if Input.is_action_pressed("crouch") && !isHoldingSprint:
 		camera.translation = lerp(camera.translation, Vector3(0,0.05,0), 0.1)
-		currentlyCrouching = false #This is an intentional bug that means move speed isn't halved when crouching
+		if crouchFixEnable:
+			currentlyCrouching = true
+	elif Input.is_action_pressed("crouch") && isHoldingSprint && !currentlyMoving:
+		camera.translation = lerp(camera.translation, Vector3(0,0.05,0), 0.1)
+		isHoldingSprint = false
+		sprintToggled = false
+		if crouchFixEnable:
+			currentlyCrouching = true
 	else:
 		camera.translation = lerp(camera.translation, Vector3(0,0.65,0), 0.1)
 		currentlyCrouching = false
 	
 	#Slide system
-	if isHoldingSprint && Input.is_action_just_pressed("crouch") && !currentlyCrouching && !currentlySliding && isOnGround:
-		movementLocked = true
-		currentlySliding = true
-	if currentlySliding:
-		slideTime += delta
-		camera.translation = lerp(camera.translation, Vector3(0,-0.3,0), 0.1)
-		velocity.x = movementDirection.x * movementSpeed * 2.5
-		velocity.z = movementDirection.z * movementSpeed * 2.5
-		if slideTime >= 0.5:
-			slideTime = 0
-			currentlySliding = false
-			movementLocked = false
+	if !slideFixEnable:
+		if isHoldingSprint && Input.is_action_just_pressed("crouch") && !currentlyCrouching && !currentlySliding:
+			currentlySliding = true
+		if currentlySliding:
+			slideTime += delta
+			camera.translation = lerp(camera.translation, Vector3(0,-0.3,0), 0.1)
+			camera.fov = lerp(camera.fov, 115, 0.09)
+			velocity.x = movementDirection.x * movementSpeed * 2.5
+			velocity.z = movementDirection.z * movementSpeed * 2.5
+			velocity.y = 0
+			if slideTime >= 0.5:
+				slideTime = 0
+				currentlySliding = false
+				movementLocked = false
+	#"fixed" slide system
+	if slideFixEnable:
+		if isHoldingSprint && Input.is_action_just_pressed("crouch") && !currentlyCrouching && !currentlySliding && isOnGround && slideReady && currentlyMoving:
+			movementLocked = true
+			currentlySliding = true
+		if currentlySliding:
+			slideTime += delta
+			camera.translation = lerp(camera.translation, Vector3(0,-0.3,0), 0.1)
+			velocity.x = movementDirection.x * movementSpeed * 2.5
+			velocity.z = movementDirection.z * movementSpeed * 2.5
+			if slideTime >= 0.5:
+				slideTime = 0
+				currentlySliding = false
+				movementLocked = false
 	
 	
 	#If the player is holding sprint, jump, is not on the ground and close enough to a wall, wallrun.
@@ -196,8 +234,10 @@ func _physics_process(delta):
 	
 	if stamina > 0:
 			outOfStamina = false
-	else: 
-		outOfStamina = false #Set this to true to enable stamina.
+	elif wallStaminaFixEnable: 
+		outOfStamina = true
+	else:
+		outOfStamina = false
 	
 	if currentlyWallRunning:
 		if !outOfStamina:
@@ -214,24 +254,24 @@ func _physics_process(delta):
 	#Controls movement direction
 func _getMovementDirection():
 	var direction = Vector3.DOWN
-	if Input.is_action_pressed("moveForwards") and Input.is_action_pressed("moveBackwards"):
+	if Input.is_action_pressed("moveForwards") and Input.is_action_pressed("moveBackwards") && !movementLocked:
 		direction = Vector3(0,0,0)
 	elif Input.is_action_pressed("moveForwards"):
 			direction -= transform.basis.z
-	elif Input.is_action_pressed("moveBackwards"):
+	elif Input.is_action_pressed("moveBackwards") && !movementLocked:
 			direction += transform.basis.z
 	
-	if Input.is_action_pressed("moveLeft") and Input.is_action_pressed("moveRight"):
+	if Input.is_action_pressed("moveLeft") and Input.is_action_pressed("moveRight") && !movementLocked:
 		direction = Vector3(0,0,0)
-	elif Input.is_action_pressed("moveLeft"):
+	elif Input.is_action_pressed("moveLeft") && !movementLocked:
 		direction -= transform.basis.x
-	elif Input.is_action_pressed("moveRight"):
+	elif Input.is_action_pressed("moveRight") && !movementLocked:
 		direction += transform.basis.x
 	return direction
 
 #Camera rotation and clamping
 func _input(event):
-	if event is InputEventMouseMotion:
+	if event is InputEventMouseMotion && !movementLocked:
 		var movement = event.relative
 		camera.rotation.x -= deg2rad(movement.y*sensitivity)
 		camera.rotation.x = clamp($Camera.rotation.x, deg2rad(-90), deg2rad(90))
