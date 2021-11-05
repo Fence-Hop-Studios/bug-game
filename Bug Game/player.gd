@@ -2,7 +2,6 @@ extends KinematicBody
 
 const GRAVITY = -15
 
-
 var velocity = Vector3.ZERO
 var baseMovementSpeed = 3
 var movementSpeed
@@ -23,17 +22,23 @@ var chargeBugJump:float
 var bugJumpChargeTimer:float
 
 var leftOrRightCastColliding:bool #Used to shorten code that doesn't need right or left specifics.
-var isHoldingJump:bool
-var isHoldingSprint:bool
-var isOnGround:bool
-var currentlyMoving:bool
-var currentlyWallRunning:bool
-var currentlySliding:bool
-var currentlyCrouching:bool
+var isHoldingJump:bool #Checks if player is currently holding space
+var isHoldingSprint:bool #Checks if player is sprinting
+var isOnGround:bool #Checks if player is currently in the air or not
+var currentlyMoving:bool #Used to check if moving
+var currentlyWallRunning:bool #Used to check if wall running
+var currentlySliding:bool #Used to check if sliding
+var currentlyCrouching:bool #Used to check if crouching.
+var slideTime:float #the length of time the player slides for
+var slideDelay:float #just a timer for delaying slide
+var slideReady:bool = true # set to true by default to make sure the player can actually slide
+var movementLocked:bool #Used to lock movement of character, view and move
 
 var fallTimer:float
 
 var sensitivity:float = 0.06
+var toggleSprint:bool = true
+var sprintToggled:bool
 
 onready var camera = $Camera
 
@@ -51,8 +56,6 @@ func _process(delta):
 		leftOrRightCastColliding = false
 	
 	
-	
-	
 	#used to check if player is moving, does not work below.
 	if Input.is_action_pressed("moveForwards"):
 		currentlyMoving = true
@@ -60,22 +63,56 @@ func _process(delta):
 		currentlyMoving = false
 		
 	if $floorCast.is_colliding() == true:
-		
 		isOnGround = true
 		fallTimer = 0
 	else:
 		fallTimer += delta
 		isOnGround = false
 	
+	#sets the fov to be higher when falling
 	if !isOnGround && !leftOrRightCastColliding && fallTimer >= 2:
 		camera.fov = lerp(camera.fov, 110, 0.0008)
-		print("working")
+	#controls slide delaying, implement toggling this for boss fight
+#	if Input.is_action_just_released("crouch") && currentlySliding:
+#		slideTime = 0
+#		currentlySliding = false
+#		slideReady = false
+#		movementLocked = false
+#
+#	if !slideReady:
+#		slideDelay += delta
+#	if !slideReady && slideDelay >= 1.5:
+#		slideReady = true
+#		slideDelay = 0
 
 func _physics_process(delta):
 	var movementDirection = _getMovementDirection()
-
+	
+	print(sprintToggled)
 	#checks if the player is currently sprinting, sets FOV higher if true as well as movespeed
-	if Input.is_action_pressed("sprint"):
+	if Input.is_action_pressed("sprint") && !toggleSprint:
+		isHoldingSprint = true
+		movementSpeed = baseMovementSpeed * 2 
+		if currentlyMoving:
+			camera.fov = lerp(camera.fov, 105, 0.09)
+		elif isOnGround:
+			camera.fov = lerp(camera.fov, 90, 0.05)
+	elif currentlyCrouching:
+		isHoldingSprint = false
+		movementSpeed = baseMovementSpeed / 2
+		camera.fov = lerp(camera.fov, 90, 0.05)
+	else:
+		isHoldingSprint = false
+		movementSpeed = baseMovementSpeed
+		if isOnGround:
+			camera.fov = lerp(camera.fov, 90, 0.05)
+	#Handles sprint but toggled
+	if Input.is_action_just_pressed("sprint") && toggleSprint && !sprintToggled && !currentlyCrouching:
+		sprintToggled = true
+	elif Input.is_action_just_pressed("sprint") && toggleSprint && sprintToggled:
+		sprintToggled = false
+		
+	if sprintToggled:
 		isHoldingSprint = true
 		movementSpeed = baseMovementSpeed * 2 
 		if currentlyMoving:
@@ -116,6 +153,7 @@ func _physics_process(delta):
 			bugJumpChargeTimer = 0
 		isHoldingJump = false
 			
+	#crouch system
 	if Input.is_action_pressed("crouch") && !isHoldingSprint:
 		camera.translation = lerp(camera.translation, Vector3(0,0.05,0), 0.1)
 		currentlyCrouching = false #This is an intentional bug that means move speed isn't halved when crouching
@@ -123,6 +161,19 @@ func _physics_process(delta):
 		camera.translation = lerp(camera.translation, Vector3(0,0.65,0), 0.1)
 		currentlyCrouching = false
 	
+	#Slide system
+	if isHoldingSprint && Input.is_action_just_pressed("crouch") && !currentlyCrouching && !currentlySliding && isOnGround:
+		movementLocked = true
+		currentlySliding = true
+	if currentlySliding:
+		slideTime += delta
+		camera.translation = lerp(camera.translation, Vector3(0,-0.3,0), 0.1)
+		velocity.x = movementDirection.x * movementSpeed * 2.5
+		velocity.z = movementDirection.z * movementSpeed * 2.5
+		if slideTime >= 0.5:
+			slideTime = 0
+			currentlySliding = false
+			movementLocked = false
 	
 	
 	#If the player is holding sprint, jump, is not on the ground and close enough to a wall, wallrun.
@@ -159,9 +210,6 @@ func _physics_process(delta):
 	velocity.x = lerp(velocity.x,movementDirection.x * movementSpeed,acceleration * delta)
 	velocity.z = lerp(velocity.z,movementDirection.z * movementSpeed,acceleration * delta)
 	velocity = move_and_slide(velocity, Vector3.UP)
-	
-	
-	
 	
 	#Controls movement direction
 func _getMovementDirection():
