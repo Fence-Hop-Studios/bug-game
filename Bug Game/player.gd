@@ -34,14 +34,23 @@ var slideDelay:float #just a timer for delaying slide
 var slideReady:bool = true # set to true by default to make sure the player can actually slide
 var movementLocked:bool #Used to lock movement of character, view and move
 
+var damageTakenRecently:bool
+var regenDelay:float
+export var healthRegenEnabled:bool
+export var healthEnabled:bool
+var lastKnownHealth:float
+var lastKnownHealthTimer:float
+
 #Bug toggles
 var slideFixEnable:bool
 var crouchFixEnable:bool
 var wallStaminaFixEnable:bool
 var bugJumpFixEnable:bool
 var jumpDelayFixEnable:bool
+export var disableAllBugs:bool
 
 var fallTimer:float
+var fallDamageEnabled:bool
 
 var sensitivity:float = 0.06
 var toggleSprint:bool = true
@@ -53,15 +62,20 @@ onready var camera = $Camera
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED) 
 	
+	if disableAllBugs:
+		slideFixEnable = true
+		crouchFixEnable = true
+		wallStaminaFixEnable = true
+		bugJumpFixEnable = true
+		jumpDelayFixEnable = true
+	
 	
 func _process(delta):
 	
 	if $rightCast.is_colliding() or $leftCast.is_colliding():
-		leftOrRightCastColliding = true
-		fallTimer = 0 #Resets the fall timer to stop fov from getting stuck while wall running.
+		leftOrRightCastColliding = true #Resets the fall timer to stop fov from getting stuck while wall running.
 	else:
 		leftOrRightCastColliding = false
-	
 	
 	#used to check if player is moving, does not work below.
 	if Input.is_action_pressed("moveForwards"):
@@ -69,7 +83,15 @@ func _process(delta):
 	else:
 		currentlyMoving = false
 		
+		
+	if !isOnGround && !currentlyWallRunning && fallTimer >= 2:
+		camera.fov = lerp(camera.fov, 110, 0.0008)
+		fallDamageEnabled = true
+		
 	if $floorCast.is_colliding() == true:
+		if fallDamageEnabled:
+			_damage(20 * fallTimer, "fuckyou")
+			fallDamageEnabled = false
 		isOnGround = true
 		fallTimer = 0
 	else:
@@ -77,8 +99,28 @@ func _process(delta):
 		isOnGround = false
 	
 	#sets the fov to be higher when falling
-	if !isOnGround && !leftOrRightCastColliding && fallTimer >= 2:
-		camera.fov = lerp(camera.fov, 110, 0.0008)
+	
+	if healthEnabled:
+		if healthRegenEnabled && !damageTakenRecently && regenDelay >= 5:
+			if health <= baseHealth:
+				health = health + 0.005
+		if health < 100:
+			lastKnownHealthTimer += delta
+			if health < lastKnownHealth:
+				damageTakenRecently = true
+				regenDelay = 0
+			if lastKnownHealth >= health:
+				damageTakenRecently = false
+				regenDelay += delta
+			if lastKnownHealthTimer >= 4:
+				lastKnownHealth = health
+				lastKnownHealthTimer = 0
+		if health >= 100:
+			damageTakenRecently = false
+			health = 100
+		if health < 0:
+			health = 0
+	
 	#controls slide delaying, implement toggling this for boss fight
 	if slideFixEnable:
 		if Input.is_action_just_released("crouch") && currentlySliding:
@@ -96,7 +138,6 @@ func _process(delta):
 func _physics_process(delta):
 	var movementDirection = _getMovementDirection()
 	
-	print(sprintToggled)
 	#checks if the player is currently sprinting, sets FOV higher if true as well as movespeed
 	if Input.is_action_pressed("sprint") && !toggleSprint:
 		isHoldingSprint = true
@@ -217,13 +258,11 @@ func _physics_process(delta):
 	#If the player is holding sprint, jump, is not on the ground and close enough to a wall, wallrun.
 	if isHoldingSprint && isHoldingJump && !isOnGround && $leftCast.is_colliding():
 		currentlyWallRunning = true
-		fallTimer = 0 #Linked to changing the FOV when falling.
 		camera.rotation_degrees.z = lerp(camera.rotation_degrees.z, -25, 0.1)
 		stamina -= delta
 		wallJumpDelay -= delta 
 	elif isHoldingSprint && isHoldingJump && !isOnGround && $rightCast.is_colliding(): #There are two of these to control the camera tilting right or left.
 		currentlyWallRunning = true
-		fallTimer = 0 #Linked to changing the FOV when falling.
 		camera.rotation_degrees.z = lerp(camera.rotation_degrees.z, 25, 0.1)
 		stamina -= delta
 		wallJumpDelay -= delta
@@ -240,6 +279,7 @@ func _physics_process(delta):
 		outOfStamina = false
 	
 	if currentlyWallRunning:
+		fallTimer = 0
 		if !outOfStamina:
 			velocity.y = 0
 		else:
@@ -276,3 +316,7 @@ func _input(event):
 		camera.rotation.x -= deg2rad(movement.y*sensitivity)
 		camera.rotation.x = clamp($Camera.rotation.x, deg2rad(-90), deg2rad(90))
 		rotation.y += -deg2rad(movement.x*sensitivity)
+
+func _damage(damageAmount:float, damageType:String):
+	health = health - damageAmount
+	
