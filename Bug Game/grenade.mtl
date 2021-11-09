@@ -1,0 +1,26 @@
+# Blender MTL File: 'grenade.blend'
+# Material Count: 2
+
+newmtl Metal
+Ns 110.250015
+Ka 0.250000 0.250000 0.250000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Bump -bm 3.700000 C:\\Users\\Grace\\Desktop\\Metal013_1K-PNG\\Metal013_1K_NormalGL.png
+map_Kd C:\\Users\\Grace\\Desktop\\Metal013_1K-PNG\\Metal013_1K_Color.png
+
+newmtl Wood
+Ns 225.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.262133 0.078930
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Bump -bm 6.000000 C:\\Users\\Grace\\Desktop\\Wood035_1K-PNG\\Wood035_1K_NormalGL.png
+map_Kd C:\\Users\\Grace\\Desktop\\Wood035_1K-PNG\\Wood035_1K_Color.png
